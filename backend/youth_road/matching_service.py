@@ -129,38 +129,44 @@ class MatchingEngine:
             max_age_days = 30 
             cutoff_date = today - timedelta(days=max_age_days)
 
-            # [v26] 제로오류 리얼리티 매트릭스: 구매력(Buying Power) 산출
+            # [v28] 강철 장벽(Steel Wall) 리얼리티 매칭
+            # 1. 가용 순자산 (Cash on Hand)
             net_worth = (instance.assets or 0) - (instance.debt or 0)
-            # 연봉의 4.5배를 평균 대출 한도로 산정 (보수적 DSR 적용)
-            est_loan_cap = (instance.total_income * 12) * 4.5
-            if instance.is_first_home: est_loan_cap *= 1.2 # 생애최초 LTV 우대
             
-            total_budget = net_worth + est_loan_cap
+            # 2. 대출 잠재력 (Loan Potential - DSR 기준 연봉 4.5~5.5배)
+            annual_income = (instance.total_income * 12)
+            est_loan_cap = annual_income * (5.5 if instance.is_first_home else 4.5)
+            
+            # 3. 주택담보대출 LTV 제한 (생애최초 80%, 일반 70%)
+            ltv_limit = 0.8 if instance.is_first_home else 0.7
+            
+            # [Steel Wall] 총 구매력: (보유 자본 + 대출 한도)와 (LTV 한도) 중 최솟값 적용
+            # 사실상 '내가 가진 현금'이 주택 가격의 20~30%는 되어야 매수 가능
+            max_buyable_price = int(max(net_worth, 0) / (1 - ltv_limit))
+            total_budget = min(net_worth + est_loan_cap, max_buyable_price)
             
             local_products = list(HousingProduct.objects.filter(
                 Q(region__icontains=reg_key) | Q(region__icontains="전용") | Q(region__icontains="전국"),
                 is_active=True
             ).filter(
-                # 1. 마감일이 오늘 이후이거나
                 Q(end_date__gte=today) |
-                # 2. 마감일은 없지만 공고일이 최근 1개월(v22) 이내인 것만
                 (Q(end_date__isnull=True) & Q(notice_date__gte=cutoff_date))
-            ).order_by('-notice_date')[:100])
+            ).order_by('-notice_date')[:150])
             
             valid = []
             
             for p in local_products:
                 s_price = p.sales_price
-                is_verified_price = (s_price > 0)
                 
-                # [v23] 금액 포맷팅 (X억 Y만)
-                if not is_verified_price:
-                    formatted_price = "분양가 정보 없음 (상세 확인 권장)"
+                # [v28 Steel Wall] 가격 미확인 또는 예산 초과 시 '즉시 탈락'
+                if s_price <= 0: continue # 가격 모르면 안전상 제외
+                if s_price > total_budget: continue # 1원이라도 초약 시 제외
+                
+                # [v23] 금액 포맷팅
+                if s_price >= 10000:
+                    formatted_price = f"{s_price // 10000}억 {s_price % 10000:,}만" if s_price % 10000 > 0 else f"{s_price // 10000}억"
                 else:
-                    if s_price >= 10000:
-                        formatted_price = f"{s_price // 10000}억 {s_price % 10000:,}만" if s_price % 10000 > 0 else f"{s_price // 10000}억"
-                    else:
-                        formatted_price = f"{s_price:,}만"
+                    formatted_price = f"{s_price:,}만"
 
                 tag = "모집중"
                 if p.notice_date and p.notice_date > today: tag = "모집예정"
@@ -173,18 +179,9 @@ class MatchingEngine:
                 }
                 
                 if MatchingEngine.is_eligible_housing(instance, p_data):
-                    # [v26] 무오차 현실성 스코어링
-                    if is_verified_price:
-                        # 예산 대비 가격 비율 (1.0이면 딱 맞음, 0.5면 여유, 1.5면 부족)
-                        budget_ratio = s_price / max(total_budget, 1)
-                        if budget_ratio > 1.2: # 예산 20% 초과 시 '위험'
-                            score = 100
-                        elif budget_ratio > 0.9: # 예산 90~120% 사이 '최적 적합'
-                            score = 1500
-                        else: # 예산보다 훨씬 저렴 '안정'
-                            score = 1000 + int((1-budget_ratio) * 200)
-                    else:
-                        score = 100 # 가격 미검증은 하단
+                    # [v28] 예산 내 비중 근접도 스코어링 (내 예산에 가장 꽉 찬 좋은 집 우선)
+                    budget_ratio = s_price / max(total_budget, 1)
+                    score = 1000 + int(budget_ratio * 500) # 예산에 가까울수록 고점
                     
                     cat_str = p.category or ''
                     title_str = p.title or ''
@@ -195,22 +192,14 @@ class MatchingEngine:
                     valid.append(p_data)
                     
             if not valid:
-                return MatchingEngine.get_default_item("주거", "현재 예산 범위 내의 적격 공고가 없습니다.")
+                return MatchingEngine.get_default_item("주거", f"가용 예산({total_budget//10000}억) 내에서 매수가 가능한 공고를 찾지 못했습니다.")
 
             valid.sort(key=lambda x: x['score'], reverse=True)
             top = valid[0]
             
-            # [v26] 정밀 현실성 분석 텍스트
-            if top['sales_price'] > 0:
-                gap = top['sales_price'] - total_budget
-                if gap <= 0:
-                    status_msg = f"✅ 가용 예산({total_budget//10000}억) 내 안정권"
-                else:
-                    status_msg = f"⚠️ 예산 대비 {gap//10000}억 추가 필요"
-                reason_main = f"현재 보유 자산과 대출 여력을 합산한 구매력({total_budget//10000}억) 기준 최적 매칭입니다."
-            else:
-                status_msg = "분양가 미확인"
-                reason_main = "가격 정보가 희박하여 정밀 매칭이 어렵습니다. 공고문 확인을 권장합니다."
+            # [v28] 강철 장벽 준수 리포트
+            status_msg = f"✅ 가용 예산({total_budget//10000}억) 내 안전 매수 가능"
+            reason_main = f"사용자님의 순자산과 LTV({int(ltv_limit*100)}%) 한도를 고려할 때, 현실적으로 지불 가능한 최상의 매물입니다."
             
             return { 
                 "top_1": top, 

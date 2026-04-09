@@ -134,8 +134,8 @@ class WelfareProduct(models.Model):
     org_nm = models.CharField(max_length=100, verbose_name="주관기관")
     category = models.CharField(max_length=100, default="복지정책", verbose_name="정책구분")
     
-    benefit_desc = models.TextField(verbose_name="지원내용")
-    target_desc = models.TextField(verbose_name="지원대상")
+    benefit_desc = models.TextField(null=True, blank=True, verbose_name="지원내용")
+    target_desc = models.TextField(null=True, blank=True, verbose_name="지원대상")
     age_limit = models.CharField(max_length=100, null=True, blank=True, verbose_name="연령제한")
     region = models.CharField(max_length=100, null=True, blank=True, verbose_name="지원지역")
     notice_date = models.DateField(null=True, blank=True, verbose_name="공고일")

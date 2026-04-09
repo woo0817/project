@@ -9,6 +9,8 @@ from youth_road.models import HousingProduct, FinanceProduct, WelfareProduct, Ho
 from youth_road.firebase_service import FirebaseManager
 from urllib.parse import unquote
 
+import time
+
 class Command(BaseCommand):
     help = 'Masterpiece Total Harvesting Engine v25 - Maximum Data & Detail'
 
@@ -43,20 +45,32 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("🏆 COMPREHENSIVE DATA HARVESTING COMPLETE (v25.0 - Ultimate Edition)!"))
 
     def fetch_api_pages(self, endpoint, api_key, pages=5, per_page=100, extra_params=None):
-        """다중 페이지 API 수집 범용 함수"""
+        """다중 페이지 API 수집 범용 함수 (v27.2 재시도/안정성 특화)"""
         all_data = []
         for p in range(1, pages + 1):
             params = {'page': p, 'perPage': per_page, 'serviceKey': api_key, 'returnType': 'JSON'}
             if extra_params: params.update(extra_params)
-            try:
-                res = requests.get(endpoint, params=params, headers=self.headers, timeout=12)
-                data = res.json().get('data', [])
-                if not data: break
-                all_data.extend(data)
-                self.stdout.write(f"    - Fetching {endpoint.split('/')[-1]}: Page {p} ({len(data)} items)")
-            except Exception as e:
-                self.stderr.write(f"    ! Error on Page {p}: {e}")
-                break
+            
+            success = False
+            for attempt in range(1, 4): # 최대 3회 재시도
+                try:
+                    res = requests.get(endpoint, params=params, headers=self.headers, timeout=30)
+                    data = res.json().get('data', [])
+                    if not data: 
+                        success = True # 데이터가 없는 것은 정상 종료
+                        break
+                    all_data.extend(data)
+                    self.stdout.write(f"    - Fetching {endpoint.split('/')[-1]}: Page {p} ({len(data)} items)")
+                    success = True
+                    break
+                except Exception as e:
+                    self.stderr.write(f"    ! Attempt {attempt} Failed (Page {p}): {e}")
+                    time.sleep(1) # 잠시 대기 후 재시도
+            
+            if not success:
+                self.stderr.write(f"    !! Page {p} Skip after 3 attempts.")
+                continue # 다음 페이지로 진행
+                
         return all_data
 
     def sync_housing_deep(self, api_key):
