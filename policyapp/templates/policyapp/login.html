@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그인 | 청년정책 ZIP</title>
+    
+    <!-- 아이콘 라이브러리 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary-color: #74ebd5; 
+            --secondary-color: #ACB6E5; 
+            --text-color: #ffffff;
+            --glass-bg: rgba(255, 255, 255, 0.15); 
+            --glass-border: rgba(255, 255, 255, 0.2); 
+            --glass-blur: blur(15px); 
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+            background: linear-gradient(135deg, #74ebd5 0%, #ACB6E5 100%);
+            background-attachment: fixed;
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* 상단바 */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 50px;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-bottom: 1px solid var(--glass-border);
+            position: fixed;
+            top: 0; width: 100%; box-sizing: border-box; z-index: 1000;
+        }
+
+        .logo { font-weight: bold; font-size: 1.4rem; cursor: pointer; color: white; text-decoration: none; }
+        
+        nav a {
+            text-decoration: none;
+            color: rgba(255,255,255,0.8);
+            margin-left: 20px;
+            font-size: 0.9rem;
+        }
+
+        /* 메인 영역 */
+        main {
+            flex: 1;
+            max-width: 1100px;
+            margin: 150px auto 50px;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        .info-msg {
+            font-size: 0.9rem;
+            margin-top: 40px;
+            opacity: 0.9;
+        }
+
+        /* 로그인 카드 컨테이너 (3열로 정렬되도록 조정) */
+        .card-container {
+            display: flex;
+            justify-content: center;
+            gap: 25px;
+            flex-wrap: wrap;
+            margin-top: 50px;
+        }
+
+        /* 로그인 카드 스타일 */
+        .login-card {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            width: 280px;
+            padding: 60px 20px;
+            border-radius: 30px;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: white;
+            box-sizing: border-box;
+        }
+
+        .login-card:hover {
+            transform: translateY(-10px);
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        /* 회원가입 카드는 시각적 구분을 위해 색상 강조를 줄 수 있습니다 */
+        .register-card {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+
+        .icon { font-size: 3.5rem; margin-bottom: 25px; display: block; }
+        .card-title { font-size: 1.2rem; font-weight: bold; line-height: 1.4; }
+
+        /* 하단바 */
+        footer {
+            background: rgba(0, 0, 0, 0.1);
+            backdrop-filter: var(--glass-blur);
+            padding: 30px 50px;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--glass-border);
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .footer-links span { margin-right: 10px; cursor: pointer; }
+        .footer-icons a { color: white; font-size: 1.5rem; margin-left: 15px; text-decoration: none; }
+    </style>
+</head>
+<body>
+
+ <header>
+    <a href="/" class="logo">청춘로</a>
+    <nav>
+        <a href="#">청춘로AI</a>
+        <a href="#">통합검색</a>
+        
+        {% if user.is_authenticated or request.session.is_guest %}
+            <span style="color: white; margin-left: 20px; font-size: 0.9rem; font-weight: bold;">
+                {% if request.session.is_guest %}
+                    {{ request.session.guest_name }}
+                {% else %}
+                    {{ user.last_name|default:user.username }}
+                {% endif %}
+            </span>
+            
+            <form action="{% url 'logout' %}" method="post" style="display: inline; margin-left: 15px;">
+                {% csrf_token %}
+                <button type="submit" style="background: none; border: none; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 0.9rem; text-decoration: underline;">
+                    로그아웃
+                </button>
+            </form>
+        {% else %}
+            <a href="{% url 'login' %}">로그인</a>
+        {% endif %}
+    </nav>
+</header>
+
+    <main>
+        <h1>방문 목적을 선택해주세요</h1>
+        
+        <div class="card-container">
+            <!-- 1. 아이디 로그인 카드 -->
+            <div class="login-card" onclick="location.href='{% url 'id_login' %}'">
+                <span class="icon"><i class="fas fa-user-circle"></i></span>
+                <div class="card-title">아이디 로그인</div>
+            </div>
+
+            <!-- 2. 비회원 로그인 카드 -->
+            <div class="login-card" onclick="location.href='{% url 'guest_login' %}'">
+                <span class="icon"><i class="fas fa-user-secret"></i></span>
+                <div class="card-title">비회원 로그인</div>
+            </div>
+
+            <!-- 3. 회원가입 카드 (새로 추가)[cite: 12] -->
+            <div class="login-card register-card" onclick="location.href='{% url 'register_step1' %}'">
+                <span class="icon"><i class="fas fa-user-plus"></i></span>
+                <div class="card-title">회원가입</div>
+            </div>
+        </div>
+
+        <p class="info-msg">
+            <i class="fas fa-lock"></i> 귀하의 정보는 동의 없이 공개되지 않으며, 개인정보 보호법에 의해 보호되고 있습니다.
+        </p>
+    </main>
+
+    <footer>
+        <div>
+            <p>주소: 서울특별시 ... | 전화: 02-1234-5678 | 찾아오시는길</p>
+            <div class="footer-links">
+                <span>조직도</span> | <strong>개인정보처리방침</strong> | <span>저작권정책</span>
+            </div>
+            <p style="margin-top:10px;">Copyright © 2024 청년정책 ZIP. All rights reserved.</p>
+        </div>
+        <div class="footer-icons">
+            <a href="https://www.instagram.com" target="_blank"><i class="fa-brands fa-instagram"></i></a>
+            <a href="https://www.kakaocorp.com" target="_blank"><i class="fa-solid fa-comment"></i></a>
+            <a href="https://www.youtube.com" target="_blank"><i class="fa-brands fa-youtube"></i></a>
+        </div>
+    </footer>
+
+</body>
+</html>

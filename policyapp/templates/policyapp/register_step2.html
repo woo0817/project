@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+    /* --- 기존 스타일 유지 --- */
+    .user-type-tab {
+        display: flex;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 15px;
+        margin-bottom: 30px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+    .user-type-tab input[type="radio"] { display: none; }
+    .tab-btn {
+        flex: 1; padding: 15px; text-align: center;
+        cursor: pointer; color: #858181; transition: 0.3s;
+    }
+    .user-type-tab input[type="radio"]:checked + .tab-btn {
+        background: #1a4f8b; font-weight: bold; color: white;
+    }
+    .field-group { margin-bottom: 25px; }
+    .field-group label { display: block; margin-bottom: 8px; font-weight: bold; color: #333; }
+    input[type="text"], input[type="password"] {
+        width: 100%; padding: 12px 15px; border-radius: 10px;
+        border: 1px solid #ddd; box-sizing: border-box;
+    }
+    .dual-input { display: flex; align-items: center; gap: 10px; }
+    /* 중복확인 버튼 삭제로 인해 input-with-btn 스타일은 유지하되 버튼만 제거됨 */
+    .input-with-btn { display: flex; gap: 10px; }
+    .inner-btn {
+        padding: 0 20px; background: #666; color: white;
+        border: none; border-radius: 10px; white-space: nowrap; cursor: pointer;
+    }
+    body {
+        background-color: #f5f7fa; margin: 0; display: flex;
+        justify-content: center; align-items: flex-start; min-height: 100vh; padding: 50px 0;
+    }
+    .register-container { width: 90%; max-width: 600px; display: flex; flex-direction: column; align-items: center; }
+    .title-section { text-align: center; margin-bottom: 30px; }
+    .glass-card-wide {
+        width: 100%; background: white; padding: 40px; border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1); box-sizing: border-box;
+    }
+    .button-group { display: flex; gap: 15px; margin-top: 30px; }
+    .btn {
+        flex: 1; padding: 15px; border-radius: 10px; text-align: center;
+        text-decoration: none; font-weight: bold; cursor: pointer; border: none; font-size: 16px;
+    }
+    .btn-primary { background: #1a4f8b; color: white; }
+    .btn-secondary { background: #eee; color: #333; }
+
+    .required-star {
+        color: #e74c3c;
+        margin-left: 2px;
+    }
+
+    .modal-overlay {
+        display: none;
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.5); z-index: 2000;
+        justify-content: center; align-items: center;
+    }
+    .modal-content {
+        background: white; padding: 30px; border-radius: 15px;
+        width: 320px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+    .modal-message { margin-bottom: 20px; font-size: 16px; color: #333; line-height: 1.5; }
+    .modal-close-btn {
+        background: #1a4f8b; color: white; border: none; padding: 10px 25px;
+        border-radius: 8px; cursor: pointer; font-weight: bold;
+    }
+</style>
+</head>
+<body>
+    <!-- 모달 구조는 유지 (다른 알림용으로 사용 가능) -->
+    <div id="idCheckModal" class="modal-overlay">
+        <div class="modal-content">
+            <div id="modalMessage" class="modal-message"></div>
+            <button type="button" class="modal-close-btn" onclick="closeModal()">확인</button>
+        </div>
+    </div>
+
+    <div class="register-container">
+        <div class="title-section">
+            <h1 class="main-title">회원가입</h1>
+            <h2>회원정보입력</h2>
+        </div>
+
+        <form method="post" class="glass-card-wide">
+            {% csrf_token %}
+            
+            <div class="user-type-tab">
+                <input type="radio" name="user_type" value="individual" id="type-personal" checked>
+                <label for="type-personal" class="tab-btn">개인</label>
+                
+                <input type="radio" name="user_type" value="corporate" id="type-business">
+                <label for="type-business" class="tab-btn">법인</label>
+            </div>
+
+            <div class="input-section">
+                <h3>기본정보</h3>
+                <div class="field-group">
+                    <label>이름 <span class="required-star">(필수)</span></label>
+                    <input type="text" name="name" placeholder="이름을 입력해 주세요." required>
+                </div>
+
+                <div class="field-group">
+                    <label>주민등록번호 <span class="required-star">(필수)</span></label>
+                    <div class="dual-input">
+                        <input type="text" name="resident_num_front" placeholder="앞 6자리" maxlength="6">
+                        <span>-</span>
+                        <input type="password" name="resident_num_back" placeholder="뒤 7자리" maxlength="7">
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label>아이디 <span class="required-star">(필수)</span></label>
+                    <div class="input-with-btn">
+                        <!-- 중복확인 버튼 삭제 및 input 태그 유지 -->
+                        <input type="text" name="username" id="reg_username" placeholder="4~16자까지 영문/숫자 허용" required>
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label>비밀번호 <span class="required-star">(필수)</span></label>
+                    <input type="password" name="password" placeholder="비밀번호를 입력해 주세요." required>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <a href="{% url 'login' %}" class="btn btn-secondary">취소하기</a>
+                <button type="submit" class="btn btn-primary">가입완료</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const modal = document.getElementById('idCheckModal');
+        const modalMsg = document.getElementById('modalMessage');
+
+        function showModal(message) {
+            modalMsg.innerText = message;
+            modal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            modal.style.display = 'none';
+        }
+
+        // 중복 확인 관련 스크립트 로직 삭제됨
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>
